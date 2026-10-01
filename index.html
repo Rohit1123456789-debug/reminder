@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111827"><title>My Reminder App</title>
+<style>
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:#f3f4f6;color:#111827}.wrap{max-width:760px;margin:auto;padding:20px}.card{background:#fff;padding:20px;border-radius:16px;margin-bottom:16px;box-shadow:0 4px 18px #0001}h1{margin:0 0 5px}.muted,.small{color:#6b7280;font-size:13px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}label{font-weight:bold;font-size:13px;display:block;margin-bottom:5px}input,select,button{width:100%;padding:12px;border-radius:9px;border:1px solid #d1d5db;font-size:15px}button{background:#111827;color:#fff;border:0;font-weight:bold;cursor:pointer;margin-top:12px}.blue{background:#2563eb}.item{border:1px solid #e5e7eb;border-radius:10px;padding:13px;margin-top:10px}.done{opacity:.5}.actions{display:flex;gap:8px}.actions button{width:auto;padding:8px 12px}.delete{background:#dc2626}.empty{text-align:center;color:#6b7280;padding:15px}@media(max-width:600px){.grid{grid-template-columns:1fr}}
+</style></head>
+<body><div class="wrap">
+<div class="card"><h1>⏰ My Reminder App</h1><div class="muted">Add work reminders with browser notification and alarm sound.</div></div>
+<div class="card"><h2>Add Reminder</h2>
+<label>Work / Reminder</label><input id="title" placeholder="e.g. Check pending orders">
+<div class="grid"><div><label>Date</label><input id="date" type="date"></div><div><label>Time</label><input id="time" type="time"></div></div>
+<label>Repeat</label><select id="repeat"><option value="none">Once</option><option value="daily">Daily</option><option value="weekdays">Every weekday</option><option value="weekly">Weekly</option></select>
+<button onclick="addReminder()">➕ Add Reminder</button><button class="blue" onclick="enableNotifications()">🔔 Enable Notification & Sound</button><div id="msg" class="small"></div></div>
+<div class="card"><h2>Your Reminders</h2><div id="list"></div></div></div>
+<script>
+const KEY='my_reminders_v1';let reminders=JSON.parse(localStorage.getItem(KEY)||'[]'),audio=null;
+const pad=n=>String(n).padStart(2,'0');function today(){let d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}function save(){localStorage.setItem(KEY,JSON.stringify(reminders));render()}function msg(x){document.getElementById('msg').textContent=x;setTimeout(()=>document.getElementById('msg').textContent='',3000)}
+function addReminder(){let title=document.getElementById('title').value.trim(),date=document.getElementById('date').value,time=document.getElementById('time').value,repeat=document.getElementById('repeat').value;if(!title||!date||!time){msg('Please enter reminder, date and time.');return}reminders.push({id:Date.now(),title,date,time,repeat,done:false,fired:''});save();document.getElementById('title').value='';msg('Reminder added.')}
+function del(id){reminders=reminders.filter(r=>r.id!==id);save()}function done(id){let r=reminders.find(x=>x.id===id);if(r)r.done=!r.done;save()}
+function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function render(){let el=document.getElementById('list');if(!reminders.length){el.innerHTML='<div class="empty">No reminders yet.</div>';return}el.innerHTML=reminders.map(r=>`<div class="item ${r.done?'done':''}"><b>${esc(r.title)}</b><div class="small">📅 ${r.date} &nbsp; ⏰ ${r.time} &nbsp; 🔁 ${r.repeat}</div><div class="actions"><button onclick="done(${r.id})">${r.done?'Undo':'Done'}</button><button class="delete" onclick="del(${r.id})">Delete</button></div></div>`).join('')}
+async function enableNotifications(){if(!('Notification'in window)){msg('Notifications are not supported.');return}let p=await Notification.requestPermission();if(p==='granted')msg('Notifications enabled.');else msg('Please allow notifications in Chrome.');try{audio=new(window.AudioContext||window.webkitAudioContext)();await audio.resume();beep()}catch(e){}}
+function beep(){try{audio=audio||(new(window.AudioContext||window.webkitAudioContext)());let n=audio.currentTime;[0,.25,.5].forEach(x=>{let o=audio.createOscillator(),g=audio.createGain();o.frequency.value=880;g.gain.setValueAtTime(.001,n+x);g.gain.exponentialRampToValueAtTime(.3,n+x+.03);g.gain.exponentialRampToValueAtTime(.001,n+x+.2);o.connect(g);g.connect(audio.destination);o.start(n+x);o.stop(n+x+.22)})}catch(e){}}
+function fire(r){let k=r.id+'-'+r.date+'-'+r.time;if(r.fired===k)return;r.fired=k;beep();if('Notification'in window&&Notification.permission==='granted')new Notification('⏰ Reminder',{body:r.title});else alert('⏰ Reminder: '+r.title);if(r.repeat==='none')r.done=true;else{let d=new Date(r.date+'T00:00:00');if(r.repeat==='daily')d.setDate(d.getDate()+1);if(r.repeat==='weekly')d.setDate(d.getDate()+7);if(r.repeat==='weekdays'){do{d.setDate(d.getDate()+1)}while(d.getDay()===0||d.getDay()===6)}r.date=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());r.fired=''}save()}
+function check(){let d=new Date(),date=today(),time=pad(d.getHours())+':'+pad(d.getMinutes());reminders.forEach(r=>{if(!r.done&&r.date===date&&r.time===time)fire(r)})}
+document.getElementById('date').value=today();let f=new Date(Date.now()+60000);document.getElementById('time').value=pad(f.getHours())+':'+pad(f.getMinutes());render();setInterval(check,1000);
+</script></body></html>
